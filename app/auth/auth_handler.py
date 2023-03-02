@@ -9,9 +9,7 @@ JWT_ALGORITHM = config("algorithm")
 
 
 def token_response(token: str):
-    return {
-        "access_token": token
-    }
+    return token
 
 def sign_JWT(user_id : str):
     payload = {
