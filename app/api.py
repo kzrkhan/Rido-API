@@ -43,17 +43,19 @@ rido_pswd = os.environ.get("RIDO_EMAIL_PSWD")
 otp_queue = {}
 
 
+#Default end-point of API
 @app.get("/")
 async def root():
     return {"status" : "Active"}
 
 
-@app.post("/ridersignup")
+#Signup end-point for Riders
+@app.post("/rider_signup")
 async def rider_signup(rider : RiderSchema):
     if rider_check_existing_email(rider):
-        return {"response" : "A user with same email already exists"}
+        return {"response" : "A rider with same email already exists"}
     elif rider_check_existing_phone(rider):
-        return {"response" : "A user with same phone number already exists"}
+        return {"response" : "A rider with same phone number already exists"}
     else:
         token = sign_JWT(rider.email)
         data = supabase.table("riders").insert(rider.dict()).execute()
@@ -68,7 +70,8 @@ async def rider_signup(rider : RiderSchema):
         }
 
 
-@app.post("/riderlogin")
+#Login end-point for Riders
+@app.post("/rider_login")
 async def rider_login(rider : RiderLoginSchema):
     db_data = (supabase.table("riders").select("*").execute()).dict()["data"]
     for item in db_data:
@@ -85,10 +88,11 @@ async def rider_login(rider : RiderLoginSchema):
     return {"response" : "Email or password is incorrect"}
 
 
+#Function to check if the email exists for the said Rider
 def rider_check_existing_email(data : RiderSchema):
-    db_users = supabase.table("riders").select("*").execute()
+    db_riders = supabase.table("riders").select("*").execute()
     try:
-        riders_dict = db_users.dict()
+        riders_dict = db_riders.dict()
         for rider in riders_dict["data"]:
             if rider["email"] == data.email:
                 return True
@@ -97,13 +101,127 @@ def rider_check_existing_email(data : RiderSchema):
         return False
 
 
-def rider_check_existing_phone(data : RiderSchema):    
-    db_users = supabase.table("riders").select("*").execute()
+#Function to check if the email exists for the said Driver
+def driver_check_existing_email(data : DriverSchema):
+    db_drivers = supabase.table("drivers").select("*").execute()
     try:
-        riders_dict = db_users.dict()
+        drivers_dict = db_drivers.dict()
+        for driver in drivers_dict["data"]:
+            if driver["email"] == data.email:
+                return True
+        return False
+    except:
+        return False
+
+
+#Function to check if the phone number exists for the said Driver
+def driver_check_existing_phone(data : DriverSchema):    
+    db_drivers = supabase.table("drivers").select("*").execute()
+    try:
+        drivers_dict = db_drivers.dict()
+        for driver in drivers_dict["data"]:
+            if driver["phone_number"] == data.phone_number:
+                return True
+        return False
+    except:
+        return False 
+
+
+#Function to check if the phone number exists for the said Rider
+def rider_check_existing_phone(data : RiderSchema):    
+    db_riders = supabase.table("riders").select("*").execute()
+    try:
+        riders_dict = db_riders.dict()
         for rider in riders_dict["data"]:
             if rider["phone_number"] == data.phone_number:
                 return True
         return False
     except:
         return False
+
+
+#Signup end-point for Drivers
+@app.post("/driver_signup")
+async def driver_signup(driver : DriverSchema):
+    if driver_check_existing_email(driver):
+        return {"response" : "A driver with same email already exists"}
+    elif driver_check_existing_phone(driver):
+        return {"response" : "A driver with same phone number already exists"}
+    else:
+        token = sign_JWT(driver.email)
+        data = supabase.table("drivers").insert(driver.dict()).execute()
+        driver_id = ((((data.dict())["data"])[0])["driver_id"])
+        return {
+        "driver_id" : driver_id,
+        "email" : driver.email,
+        "name" : driver.name,
+        "phone number" : driver.phone_number,
+        "token" : token
+        }
+
+
+#Login end-point for Drivers
+@app.post("/driver_login")
+async def driver_login(driver : DriverLoginSchema):
+    db_data = (supabase.table("drivers").select("*").execute()).dict()["data"]
+    for item in db_data:
+        if item["email"] == driver.email and item["password"] == driver.password:
+            token = sign_JWT(driver.email)
+            return {
+            "driver_id" : item["driver_id"],
+            "email" : item["email"],
+            "name" : item["name"],
+            "phone number" : item["phone_number"],
+            "token" : token
+            }
+    return {"response" : "Email or password is incorrect"}
+
+
+#Function to check if a vehicle with a certain license plate exists in the records
+def check_existing_license_plate(data : VehicleSchema):
+    db_vehicles = supabase.table("vehicles").select("*").execute()
+    try:
+        vehicles_dict = db_vehicles.dict()
+        for vehicle in vehicles_dict["data"]:
+            if vehicle["license_plate"] == data.license_plate:
+                return True
+        return False
+    except:
+        return False
+
+
+#End-point to enter Vehicle details for Drivers
+@app.post("/add_vehicle")
+async def add_vehicle(vehicle : VehicleSchema):
+    
+    if check_existing_license_plate(vehicle):
+        return {"response" : "A vehicle with same license plate exists"}
+    else:
+        data = supabase.table("vehicles").insert(vehicle.dict()).execute()
+        driver_id = ((((data.dict())["data"])[0])["driver_id"])
+        return {
+        "response" : "Vehicle added successfully"
+        }
+
+
+#End-point to update Drivers position/coordinates in terms of Latitude and Longtitude
+@app.post("/update_driver_position/{driver_id},{lat},{lon}")
+async def update_driver_position(driver_id:int, lat:float, lon:float):
+
+    try:
+        data = supabase.table("driver_locations").select("*").eq("driver_id",driver_id).execute()
+        db_dict = data.dict()
+        if len(db_dict["data"]) == 0:
+            try:
+                supabase.table("driver_locations").insert({"driver_id":driver_id , "lat":lat , "lon":lon}).execute()
+            except:
+                return {"response" : "Error creating location entry for driver in db"}
+        else:
+            try:
+                supabase.table("driver_locations").update({"lat":lat , "lon":lon}).eq("driver_id",driver_id).execute()
+            except:
+                return {"response" : "Error updating location for driver in db"}
+    except:
+        return {"response" : "Error in finding location entry for driver in db"}
+    
+    return {"response" : "Updated"}
