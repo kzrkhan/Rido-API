@@ -2,4 +2,4 @@
 # exit on error
 set -o errexit
 
-apt-get install python3.8
+sudo apt-get install python3.8
