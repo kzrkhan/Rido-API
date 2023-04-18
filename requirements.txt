@@ -41,7 +41,7 @@ more-itertools==9.1.0
 orjson==3.8.6
 packaging==23.0
 pkginfo==1.9.6
-postgrest==0.10.6
+postgrest==0.10.5
 premailer==3.10.0
 pycparser==2.21
 pydantic==1.10.5
