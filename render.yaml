@@ -2,6 +2,6 @@ services:
   - type: web
     name: rido-api
     env: python
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    buildCommand: "python3.8 -m pip install -r requirements.txt"
+    startCommand: python3.9 -m uvicorn main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /docs
