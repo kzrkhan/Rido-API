@@ -1,5 +1,6 @@
 services:
   - type: web
+    plan: free
     name: rido-api
     env: python
     buildCommand: pip install -r requirements.txt
