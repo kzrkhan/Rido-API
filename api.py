@@ -53,9 +53,8 @@ async def root():
   <head>
     <meta charset="utf-8">
   
-    <title>Html Generated</title>
-    <meta name="description" content="Figma htmlGenerator">
-    <meta name="author" content="htmlGenerator">
+    <title>Rido Dev API</title>
+    <meta name="description" content="Developer API of Rido App">
     <link href="https://fonts.googleapis.com/css?family=Inter&display=swap" rel="stylesheet">
      
   </head>
