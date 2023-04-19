@@ -43,4 +43,4 @@ class CardSchema (BaseModel):
     card_number : str = Field(default=None)
     cardholder_name : str = Field(default=None)
     expiry_date : str = Field(default=None)
-    expiry_code : int = Field(default=None)
+    security_code : str = Field(default=None)

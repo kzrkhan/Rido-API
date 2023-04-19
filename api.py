@@ -14,7 +14,7 @@ from auth.auth_handler import sign_JWT
 from auth.auth_bearer import JWTBearer
 from supabase import create_client, Client
 import bcrypt
-
+from cryptography.fernet import Fernet
 
 
 app = FastAPI(
@@ -41,8 +41,9 @@ supabase: Client = create_client(url, key)
 rido_email = "rido.rideapp@gmail.com"
 rido_pswd = os.environ.get("RIDO_EMAIL_PSWD")
 
-#List of Numbers waiting to be verified (OTP)
-otp_queue = {}
+
+#Fernet initialization
+fernet = Fernet((os.environ.get("RIDO_FERNET_KEY")).encode("utf-8"))
 
 
 #Default end-point of API
@@ -357,4 +358,14 @@ async def update_driver_position(driver_id:int, lat:float, lon:float):
 #End-point to enter Payment Card information of Riders
 @app.post("/add_card")
 def add_payment_card(card : CardSchema):
-    pass
+    
+    #Encrypting Security Code
+    encrypted_cvv = fernet.encrypt(str(card.security_code).encode("utf-8"))
+    card.security_code = str(encrypted_cvv)
+    
+    try:
+        supabase.table("card_details").insert(card.dict()).execute()
+    except:
+        return {"response" : "DB Transaction Failed. Error in inserting Card record."}
+    
+    return {"response" : "Card added successfully"}
