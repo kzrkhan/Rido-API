@@ -7,3 +7,4 @@ pyparsing==3.0.9
 python-decouple==3.8
 supabase==0.7.1
 uvicorn==0.20.0
+bcrypt==4.0.1
