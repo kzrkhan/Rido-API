@@ -44,3 +44,11 @@ class CardSchema (BaseModel):
     cardholder_name : str = Field(default=None)
     expiry_date : str = Field(default=None)
     security_code : str = Field(default=None)
+
+
+class RideRequestSchema (BaseModel):
+    rider_id : int = Field(default=None)
+    pickup_lat : float = Field(default=None)
+    pickup_lon : float = Field(default=None)
+    dropoff_lat : float = Field(default=None)
+    dropoff_lon : float = Field(default=None)

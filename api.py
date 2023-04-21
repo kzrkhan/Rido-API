@@ -3,7 +3,7 @@ import time
 import os
 import shutil
 import random
-from fastapi import FastAPI, Depends, Query, Body, UploadFile, File, Form
+from fastapi import FastAPI, Depends, Query, Body, UploadFile, File, Form, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, EmailStr
 from typing import Optional
@@ -126,16 +126,16 @@ async def root():
 @app.post("/rider_signup")
 async def rider_signup(rider : RiderSchema):
     if rider_check_existing_email(rider):
-        return {"response" : "A rider with same email already exists"}
+        raise HTTPException(status_code=400, detail="A rider with same email already exists")
     elif rider_check_existing_phone(rider):
-        return {"response" : "A rider with same phone number already exists"}
+        raise HTTPException(status_code=400, detail="A rider with same phone number already exists")
     else:
         #Hashing passwords
         try:
-            hashed_pswd = bcrypt.hashpw((rider.password).encode("utf-8"), bcrypt.gensalt())
-            rider.password  = str(hashed_pswd)
+            hashed_pswd = hash_pswd(rider.password)
+            rider.password  = hashed_pswd
         except:
-            return {"response" : "Error in hashing password"}
+            raise HTTPException(status_code=500, detail="Error in hashing password")
         try:
             token = sign_JWT(rider.email)
             data = supabase.table("riders").insert(rider.dict()).execute()
@@ -149,7 +149,7 @@ async def rider_signup(rider : RiderSchema):
             "token" : token
             }
         except:
-            return {"response" : "DB Transaction Failed. Error inserting Rider record."}
+            raise HTTPException(status_code=500, detail="DB Transaction Failed. Error inserting Rider record.")
 
 
 #Login end-point for Riders
@@ -158,9 +158,9 @@ async def rider_login(rider : RiderLoginSchema):
     try:
         db_data = (supabase.table("riders").select("*").execute()).dict()["data"]
     except:
-        return {"response" : "DB Transaction Failed. Error fetching Rider records."}
+        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error fetching Rider records.")
     for item in db_data:
-        if item["email"] == rider.email and bcrypt.checkpw(rider.password.encode("utf-8"), item["password"][2:-1].encode("utf-8")):
+        if item["email"] == rider.email and verify_pswd(rider.password , item["password"]):
             token = sign_JWT(rider.email)
             return {
             "rider_id" : item["rider_id"],
@@ -170,7 +170,7 @@ async def rider_login(rider : RiderLoginSchema):
             "phone number" : item["phone_number"],
             "token" : token
             }
-    return {"response" : "Email or password is incorrect"}
+    raise HTTPException(status_code=400, detail="Email or password is incorrect")
 
 
 #Function to check if the email exists for the said Rider
@@ -178,7 +178,7 @@ def rider_check_existing_email(data : RiderSchema):
     try:
         db_riders = supabase.table("riders").select("*").execute()
     except:
-        return {"response" : "DB Transaction Failed. Error fetching Rider records."}
+        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error fetching Rider records.")
     try:
         riders_dict = db_riders.dict()
         for rider in riders_dict["data"]:
@@ -194,7 +194,7 @@ def driver_check_existing_email(data : DriverSchema):
     try:
         db_drivers = supabase.table("drivers").select("*").execute()
     except:
-        return {"response" : "DB Transaction Failed. Error fetching Driver records."}
+        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error fetching Driver records.")
     try:
         drivers_dict = db_drivers.dict()
         for driver in drivers_dict["data"]:
@@ -210,7 +210,7 @@ def driver_check_existing_phone(data : DriverSchema):
     try:
         db_drivers = supabase.table("drivers").select("*").execute()
     except:
-        return {"response" : "DB Transaction Failed. Error fetching Driver records."}
+        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error fetching Driver records.")
     try:
         drivers_dict = db_drivers.dict()
         for driver in drivers_dict["data"]:
@@ -226,7 +226,7 @@ def rider_check_existing_phone(data : RiderSchema):
     try:   
         db_riders = supabase.table("riders").select("*").execute()
     except:
-        return {"response" : "DB Transaction Failed. Error fetching Rider records."}
+        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error fetching Rider records.")
     try:
         riders_dict = db_riders.dict()
         for rider in riders_dict["data"]:
@@ -241,21 +241,21 @@ def rider_check_existing_phone(data : RiderSchema):
 @app.post("/driver_signup")
 async def driver_signup(driver : DriverSchema):
     if driver_check_existing_email(driver):
-        return {"response" : "A driver with same email already exists"}
+        raise HTTPException(status_code=400, detail="A driver with same email already exists")
     elif driver_check_existing_phone(driver):
-        return {"response" : "A driver with same phone number already exists"}
+        raise HTTPException(status_code=400, detail="A driver with same phone number already exists")
     else:
         token = sign_JWT(driver.email)
         #Hashing passwords
         try:
-            hashed_pswd = bcrypt.hashpw((driver.password).encode("utf-8"), bcrypt.gensalt())
-            driver.password  = str(hashed_pswd)
+            hashed_pswd = hash_pswd(driver.password)
+            driver.password  = hashed_pswd
         except:
-            return {"response" : "Error in hashing password"}        
+            raise HTTPException(status_code=500, detail="Error in hashing password")      
         try:
             data = supabase.table("drivers").insert(driver.dict()).execute()
         except:
-            return {"response" : "DB Transaction Failed. Error inserting Driver record."}
+            raise HTTPException(status_code=500, detail="DB Transaction Failed. Error inserting Driver record.")
         driver_id = ((((data.dict())["data"])[0])["driver_id"])
         return {
         "driver_id" : driver_id,
@@ -272,9 +272,9 @@ async def driver_login(driver : DriverLoginSchema):
     try:
         db_data = (supabase.table("drivers").select("*").execute()).dict()["data"]
     except:
-        return {"response" : "DB Transaction Failed. Error fetching Driver records."}
+        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error fetching Driver records.")
     for item in db_data:
-        if item["email"] == driver.email and bcrypt.checkpw(driver.password.encode("utf-8"), item["password"][2:-1].encode("utf-8")):
+        if item["email"] == driver.email and verify_pswd(driver.password , item["password"]):
             token = sign_JWT(driver.email)
             return {
             "driver_id" : item["driver_id"],
@@ -283,6 +283,7 @@ async def driver_login(driver : DriverLoginSchema):
             "phone number" : item["phone_number"],
             "token" : token
             }
+    raise HTTPException(status_code=400, detail="Email or password is incorrect")
     return {"response" : "Email or password is incorrect"}
 
 
@@ -291,7 +292,7 @@ def check_existing_license_plate(data : VehicleSchema):
     try:
         db_vehicles = supabase.table("vehicles").select("*").execute()
     except:
-        return {"response" : "DB Transaction Failed. Error fetching Vehicle records."}
+        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error fetching Vehicle records.")
     try:
         vehicles_dict = db_vehicles.dict()
         for vehicle in vehicles_dict["data"]:
@@ -307,12 +308,12 @@ def check_existing_license_plate(data : VehicleSchema):
 async def add_vehicle(vehicle : VehicleSchema):
     
     if check_existing_license_plate(vehicle):
-        return {"response" : "A vehicle with same license plate exists"}
+        raise HTTPException(status_code=400, detail="A vehicle with same license plate exists")
     else:
         try:
             data = supabase.table("vehicles").insert(vehicle.dict()).execute()
         except:
-            return {"response" : "DB Transaction Failed. Error inserting Vehicle record."}
+            raise HTTPException(status_code=500, detail="DB Transaction Failed. Error inserting Vehicle records.")
         
         driver_id = vehicle.driver_id
 
@@ -323,9 +324,9 @@ async def add_vehicle(vehicle : VehicleSchema):
             try:
                 supabase.table("drivers").update({"vehicle_id" : vehicle_id}).eq("driver_id",driver_id).execute()
             except:
-                return {"response" : "DB Transaction Failed. Error inserting Driver ID."}
+                raise HTTPException(status_code=500, detail="DB Transaction Failed. Error inserting Driver ID")
         except:
-            return {"response" : "DB Transaction Failed. Error fetching Vehicle ID"}
+            raise HTTPException(status_code=500, detail="DB Transaction Failed. Error fetching Vehicle ID")
 
         return {
         "response" : "Vehicle added successfully"
@@ -343,14 +344,14 @@ async def update_driver_position(driver_id:int, lat:float, lon:float):
             try:
                 supabase.table("driver_locations").insert({"driver_id":driver_id , "lat":lat , "lon":lon}).execute()
             except:
-                return {"response" : "DB Transaction Failed. Error creating location entry for driver in db"}
+                raise HTTPException(status_code=500, detail="Error creating location entry fo Driver in DB")
         else:
             try:
                 supabase.table("driver_locations").update({"lat":lat , "lon":lon}).eq("driver_id",driver_id).execute()
             except:
-                return {"response" : "DB Transaction Failed. Error updating location for driver in db"}
+                raise HTTPException(status_code=500, detail="DB Transaction Failed. Error updating location for Driver in DB")
     except:
-        return {"response" : "DB Transaction Failed. Error in finding location entry for driver in db."}
+        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in finding location entry for Driver in DB")
     
     return {"response" : "Updated"}
 
@@ -360,12 +361,40 @@ async def update_driver_position(driver_id:int, lat:float, lon:float):
 def add_payment_card(card : CardSchema):
     
     #Encrypting Security Code
-    encrypted_cvv = fernet.encrypt(str(card.security_code).encode("utf-8"))
-    card.security_code = str(encrypted_cvv)
+    encrypted_cvv = encrypt_cvv(card.security_code)
+    card.security_code = encrypted_cvv
     
     try:
         supabase.table("card_details").insert(card.dict()).execute()
     except:
-        return {"response" : "DB Transaction Failed. Error in inserting Card record."}
+        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in inserting Card record.")
     
     return {"response" : "Card added successfully"}
+
+
+def encrypt_cvv (cvv):
+    encrypted_cvv = fernet.encrypt(str(cvv).encode("utf-8"))
+    return str(encrypted_cvv)
+
+
+def decrypt_cvv (cvv):
+    decrypted_cvv = fernet.decrypt(cvv[2:-1].encode("utf-8"))
+    return str(decrypt_cvv)
+
+
+def hash_pswd (plain_pswd):
+    hashed_pswd = bcrypt.hashpw(plain_pswd.encode("utf-8"), bcrypt.gensalt())
+    return str(hashed_pswd)
+
+
+def verify_pswd (plain_pswd, hashed_pswd):
+    if bcrypt.checkpw(plain_pswd.encode("utf-8"), hashed_pswd[2:-1].encode("utf-8")):
+        return True
+    else:
+        return False
+
+
+#End-point to Create Ride requests from Riders
+@app.post("/request_ride")
+def request_ride():
+    pass
