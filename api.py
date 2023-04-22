@@ -304,7 +304,7 @@ def check_existing_license_plate(data : VehicleSchema):
 
 
 #End-point to enter Vehicle details for Drivers
-@app.post("/add_vehicle")
+@app.post("/add_vehicle", dependencies=[Depends(JWTBearer())])
 async def add_vehicle(vehicle : VehicleSchema):
     
     if check_existing_license_plate(vehicle):
@@ -334,20 +334,20 @@ async def add_vehicle(vehicle : VehicleSchema):
 
 
 #End-point to update Drivers position/coordinates in terms of Latitude and Longtitude
-@app.put("/update_driver_position/{driver_id},{lat},{lon}")
-async def update_driver_position(driver_id:int, lat:float, lon:float):
+@app.put("/update_driver_position", dependencies=[Depends(JWTBearer())])
+async def update_driver_position(update_position : UpdatePositionSchema):
 
     try:
-        data = supabase.table("driver_locations").select("*").eq("driver_id",driver_id).execute()
+        data = supabase.table("driver_locations").select("*").eq("driver_id",update_position.driver_id).execute()
         db_dict = data.dict()
         if len(db_dict["data"]) == 0:
             try:
-                supabase.table("driver_locations").insert({"driver_id":driver_id , "lat":lat , "lon":lon}).execute()
+                supabase.table("driver_locations").insert({"driver_id":update_position.driver_id , "lat":update_position.lat , "lon":update_position.lon}).execute()
             except:
                 raise HTTPException(status_code=500, detail="Error creating location entry fo Driver in DB")
         else:
             try:
-                supabase.table("driver_locations").update({"lat":lat , "lon":lon}).eq("driver_id",driver_id).execute()
+                supabase.table("driver_locations").update({"lat":update_position.lat , "lon":update_position.lon}).eq("driver_id",update_position.driver_id).execute()
             except:
                 raise HTTPException(status_code=500, detail="DB Transaction Failed. Error updating location for Driver in DB")
     except:
@@ -357,7 +357,7 @@ async def update_driver_position(driver_id:int, lat:float, lon:float):
 
 
 #End-point to enter Payment Card information of Riders
-@app.post("/add_card")
+@app.post("/add_card", dependencies=[Depends(JWTBearer())])
 def add_payment_card(card : CardSchema):
     
     #Encrypting Security Code
@@ -396,5 +396,5 @@ def verify_pswd (plain_pswd, hashed_pswd):
 
 #End-point to Create Ride requests from Riders
 @app.post("/request_ride")
-def request_ride():
+def request_ride(ride_request : RideRequestSchema):
     pass

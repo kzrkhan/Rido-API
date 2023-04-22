@@ -4,8 +4,8 @@ import jwt
 from decouple import config
 
 
-JWT_SECRET = config("secret")
-JWT_ALGORITHM = config("algorithm")
+JWT_SECRET = b'8a86818d58a8ec5ea97992c0011fc304695f37836da3e0b9'
+JWT_ALGORITHM = "HS256"
 
 
 def token_response(token: str):
@@ -14,7 +14,7 @@ def token_response(token: str):
 def sign_JWT(user_id : str):
     payload = {
         "user_id" : user_id,
-        "expired" : time.time() + 600
+        "expires" : time.time() + 6000
     }
 
     token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)

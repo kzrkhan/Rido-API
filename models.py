@@ -52,3 +52,9 @@ class RideRequestSchema (BaseModel):
     pickup_lon : float = Field(default=None)
     dropoff_lat : float = Field(default=None)
     dropoff_lon : float = Field(default=None)
+
+
+class UpdatePositionSchema (BaseModel):
+    driver_id : int = Field(default=None)
+    lat : float = Field(default=None)
+    lon : float = Field(default=None)
