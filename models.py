@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr, Field
 import datetime
 
 
-class RiderSchema (BaseModel):
+class RiderSignupSchema (BaseModel):
     name : str = Field(default=None)
     email : EmailStr = Field(default=None)
     gender : str = Field(default=None)
@@ -10,7 +10,7 @@ class RiderSchema (BaseModel):
     phone_number : str = Field(default=None)
 
 
-class DriverSchema (BaseModel):
+class DriverSignupSchema (BaseModel):
     name : str = Field(default=None)
     email : EmailStr = Field(default=None)
     password : str = Field(default=None)
@@ -28,7 +28,7 @@ class DriverLoginSchema (BaseModel):
     password : str
 
 
-class VehicleSchema (BaseModel):
+class VehicleRegistrationSchema (BaseModel):
     make : str = Field(default=None)
     model : str = Field(default=None)
     year : int = Field(default=None)
@@ -37,7 +37,7 @@ class VehicleSchema (BaseModel):
     max_capacity : int = Field(default=None)
 
 
-class CardSchema (BaseModel):
+class CardRegistrationSchema (BaseModel):
     rider_id : int = Field(default=None)
     card_type : str = Field(default=None)
     card_number : str = Field(default=None)
