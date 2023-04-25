@@ -616,7 +616,7 @@ def post_on_request_board_fare(driver_id : int, rider_id : int, pickup_lat : flo
 
 
 #Endpoint to watch request in request_board and expire/delete it after 15 seconds
-@app.post("/request_watcher", dependencies=[Depends(JWTBearer())])
+@app.post("/request_watcher")
 async def request_watcher(id : int):
     
     await asyncio.sleep(60.0)
