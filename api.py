@@ -557,8 +557,8 @@ async def ride_preview(pickup_lat : float, pickup_lon : float, dropoff_lat : flo
 
     return {
         "fare" : fare,
-        "pickup_address" : pickup_location,
-        "dropoff_address" : dropoff_location
+        "pickup_address" : str(pickup_location),
+        "dropoff_address" : str(dropoff_location)
         }
 
 
@@ -619,7 +619,7 @@ def post_on_request_board_fare(driver_id : int, rider_id : int, pickup_lat : flo
 @app.post("/request_watcher")
 async def request_watcher(id : int):
     
-    await asyncio.sleep(60.0)
+    await asyncio.sleep(30.0)
     try:
         supabase.table("request_board").delete().eq("id" , id).execute()
         return {"response" : "Successfully handled"}
