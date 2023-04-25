@@ -654,7 +654,8 @@ async def who_accepted(rider_id : int):
 
     if len(driver_list) != 0: #Some driver accepted
         
-        driver_id = quickest_time(driver_list)
+        quickest_driver = quickest_time(driver_list)
+        driver_id = quickest_driver["driver_id"]
         
         try:
             request_data = supabase.table("request_board").select("*").eq("driver_id", driver_id).execute()
