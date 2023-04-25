@@ -427,7 +427,7 @@ async def request_ride(ride_request : RideRequestSchema):
             for driver in target_drivers:
                 data = post_on_request_board(driver["driver_id"], ride_request.rider_id, ride_request.pickup_lat, ride_request.pickup_lon, ride_request.dropoff_lat, ride_request.dropoff_lon)
                 id = data["data"][0]["id"]
-                url = f"http://127.0.0.1:8000/request_watcher?id={id}"
+                url = f"https://rido-api.onrender.com/request_watcher?id={id}"
                 asyncio.create_task(send_request(url))
                 
             return {"response" : "Request(s) created"}
@@ -443,7 +443,7 @@ async def request_ride(ride_request : RideRequestSchema):
             for driver in online_nearby_list:
                 data = post_on_request_board_fare(driver["driver_id"], ride_request.rider_id, ride_request.pickup_lat, ride_request.pickup_lon, ride_request.dropoff_lat, ride_request.dropoff_lon, fare)
                 id = data["data"][0]["id"]
-                url = f"http://127.0.0.1:8000/request_watcher?id={id}"
+                url = f"https://rido-api.onrender.com/request_watcher?id={id}"
                 asyncio.create_task(send_request(url))
             
             return {"response" : "Request(s) created"}
