@@ -423,19 +423,19 @@ async def request_ride(ride_request : RideRequestSchema):
 
                     if busy_driver["driver_id"] == empty_seat_driver["driver_id"]:
                         target_drivers.append(busy_driver)
-
+            
             for driver in target_drivers:
                 data = post_on_request_board(driver["driver_id"], ride_request.rider_id, ride_request.pickup_lat, ride_request.pickup_lon, ride_request.dropoff_lat, ride_request.dropoff_lon)
                 id = data["data"][0]["id"]
                 url = f"https://rido-api.onrender.com/request_watcher?id={id}"
                 asyncio.create_task(send_request(url))
                 
-            return {"response" : "Request(s) created"}
+            return {"response" : "Request created successfully"}
 
     else:
 
         online_nearby_list = online_drivers_nearby(ride_request.pickup_lat , ride_request.pickup_lon)
-
+        
         if online_nearby_list:
 
             fare = calculate_normal_fare(ride_request.pickup_lat, ride_request.pickup_lon, ride_request.dropoff_lat, ride_request.dropoff_lon)
@@ -446,7 +446,7 @@ async def request_ride(ride_request : RideRequestSchema):
                 url = f"https://rido-api.onrender.com/request_watcher?id={id}"
                 asyncio.create_task(send_request(url))
             
-            return {"response" : "Request(s) created"}
+            return {"response" : "Request created successfully"}
         
         raise HTTPException(status_code=400, detail="No drivers available")
         
@@ -523,7 +523,6 @@ def online_drivers_nearby(pickup_lat : float, pickup_lon : float):
     db_dict = data.dict()
     
     prospect_list = []
-
     for record in db_dict["data"]:
         prospect_list.append(record["driver_locations"][0])
     
@@ -541,7 +540,6 @@ def online_drivers_nearby(pickup_lat : float, pickup_lon : float):
 
         if distance <= radius:
             nearby_list.append({"driver_id" : driver["driver_id"]})
-    
     return nearby_list
 
 
@@ -619,7 +617,7 @@ def post_on_request_board_fare(driver_id : int, rider_id : int, pickup_lat : flo
 @app.post("/request_watcher")
 async def request_watcher(id : int):
     
-    await asyncio.sleep(30.0)
+    await asyncio.sleep(60.0)
     try:
         supabase.table("request_board").delete().eq("id" , id).execute()
         return {"response" : "Successfully handled"}
@@ -639,7 +637,7 @@ async def send_request(url):
 async def who_accepted(rider_id : int):
     
     try:
-        data = supabase.table("request_board").select("driver_id, status, accepted_at").eq("rider_id", rider_id).execute()
+        data = supabase.table("request_board").select("id, driver_id, status, accepted_at").eq("rider_id", rider_id).execute()
     except:
         raise HTTPException(status_code=500, detail="DB Transaction Failed.")
     
@@ -654,9 +652,148 @@ async def who_accepted(rider_id : int):
         if driver["status"] == "accepted":
             driver_list.append({"driver_id" : driver["driver_id"] , "accepted_at" : driver["accepted_at"]})
 
-    if len(driver_list) != 0:
-        result = quickest_time(driver_list)
-        return result
+    if len(driver_list) != 0: #Some driver accepted
+        
+        driver_id = quickest_time(driver_list)
+        
+        try:
+            request_data = supabase.table("request_board").select("*").eq("driver_id", driver_id).execute()
+        except:
+            raise HTTPException(status_code=500, detail="DB Transaction Failed. Error fetching request data from request_board")
+        
+        request_data_dict = request_data.dict()["data"][0]
+
+        #Checking if an existing ride exists in Shared_Trips (This means the driver already ahd some passengers onboard)
+        try:
+            shared_trip_data = supabase.table("shared_trips").select("*").eq("driver_id", driver_id).eq("status", "in progress").execute()
+        except:
+            raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in finding trip data in shared_trips")
+        
+        shared_trip_data_dict = shared_trip_data.dict()["data"]
+
+        if len(shared_trip_data_dict) == 0: #Trip doesn't exist, meaning no other passenger sitting
+
+            try:
+                vehicle_data = supabase.table("vehicles").select("vehicle_id").eq("driver_id", driver_id).execute()
+            except:
+                raise HTTPException(status_code=500, detail="DB Transaction Failed. Error fetching vehicle record")
+            
+            vehicle_id = vehicle_data.dict()["data"][0]["vehicle_id"]
+
+            fare_amount = calculate_normal_fare(request_data_dict["pickup_lat"], request_data_dict["pickup_lon"], request_data_dict["dropoff_lat"], request_data_dict["dropoff_lon"])
+
+            trip_record = {
+                "driver_id" : driver_id,
+                "vehicle_id" : vehicle_id,
+                "fare_amount" : fare_amount
+            }
+
+            try:
+                new_trip_record = supabase.table("shared_trips").insert(trip_record).execute()
+            except:
+                raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in inserting shared_trip record")
+            
+            new_trip_record_dict = new_trip_record.dict()["data"][0]
+
+            trip_id = new_trip_record_dict["trip_id"]
+
+            rider_id = request_data_dict["rider_id"]
+
+            new_trip_detail_record = {
+                "trip_id" : trip_id,
+                "rider_id" : rider_id,
+                "pickup_lat" : request_data_dict["pickup_lat"],
+                "pickup_lon" : request_data_dict["pickup_lon"],
+                "dropoff_lat" : request_data_dict["dropoff_lat"],
+                "dropoff_lon" : request_data_dict["dropoff_lon"],
+                "fare_amount" : fare_amount
+            }
+
+            try:
+                inserted_trip_details_data = supabase.table("shared_trip_details").insert(new_trip_detail_record).execute()
+            except:
+                raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in inserting new shared_trip_detail record")
+            
+            ride_response = inserted_trip_details_data.dict()["data"][0]
+
+            #Updating drivers activity_status from "online" to "busy"
+            try:
+                supabase.table("drivers").update({"activity_status" : "busy"}).eq("driver_id", driver_id).execute()
+            except:
+                raise HTTPException(status_code=500, detail="DB Transaction Failed. Error updating drivers status to busy in drivers")
+
+        else:
+
+            trip_id = shared_trip_data_dict[0]["trip_id"]
+            rider_id = request_data_dict["rider_id"]
+            pickup_lat = request_data_dict["pickup_lat"]
+            pickup_lon = request_data_dict["pickup_lon"]
+            dropoff_lat = request_data_dict["dropoff_lat"]
+            dropoff_lon = request_data_dict["dropoff_lon"]
+
+            #Adding Rs.50 to the Total Fare of the trip in shared_ride upon joining of one more passenger
+            try:
+                data = supabase.table("shared_trips").select("fare_amount").eq("trip_id", trip_id).execute()
+            except:
+                raise HTTPException(status_code=500, detail="DB Transaction Failed. Error fetching total fare from shared_trips")
+            
+            current_fare = data.dict()["data"][0]["fare_amount"]
+            new_fare = int(current_fare) + 50
+
+            try:
+                supabase.table("shared_trips").update({"fare_amount" : new_fare}).eq("trip_id", trip_id).execute()
+            except:
+                raise HTTPException(status_code=500, detail="DB Transaction Failed. Error updating fare_amount in shared_trips")
+            
+            #Entering our new riders record
+            record = {
+                "trip_id" : trip_id,
+                "rider_id" : rider_id,
+                "pickup_lat" : pickup_lat,
+                "pickup_lon" : pickup_lon,
+                "dropoff_lat" : dropoff_lat,
+                "dropoff_lon" : dropoff_lon
+            } 
+            try:
+                supabase.table("shared_trip_details").insert(record).execute()
+            except:
+                raise HTTPException(status_code="500", detail="DB Transaction Failed. Error inserting new riders record in shared_trip_details")
+            
+            #Calculating all shared riders fares
+            try:
+                rider_fare_data = supabase.table("shared_trip_details").select("rider_id, pickup_lat, pickup_lon, dropoff_lat, dropoff_lon").eq("trip_id", trip_id).execute()
+            except:
+                raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in retreiving shared trip record from shared_trip_details")
+            
+            rider_fare_data_list = rider_fare_data.dict()["data"]
+
+            new_fares_list = calculate_shared_fare(rider_fare_data_list, new_fare)
+
+            
+            #Updating all riders fares
+
+            for rider in new_fares_list:
+                supabase.table("shared_trip_details").update({"fare_amount" : rider["fare"]}).eq("rider_id", rider["rider_id"]).execute()
+            
+
+            #Appending seats_occupied in shared_trips
+            try:
+                seats_occupied_data = supabase.table("shared_trips").select("seats_occupied").eq("trip_id", trip_id).execute()
+            except:
+                raise HTTPException(status_code=500, detail="DB Transaction Failed. Error fetching occupied seats from shared_trips")
+            
+            seats_occupied_dict = seats_occupied_data.dict()["data"][0]
+
+            current_occupied = seats_occupied_dict["seats_occupied"]
+            updated_occupied = int(current_occupied) + 1
+
+            try:
+                supabase.table("shared_trips").update({"seats_occupied" : updated_occupied}).eq("trip_id", trip_id).execute()
+            except:
+                raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in updating seats occupied in shared_trips")
+
+        return {"driver_id" : driver_id}
+    
     elif len(driver_list) == 0:
         raise HTTPException(status_code=301, detail="Not accepted yet")
 
@@ -687,141 +824,8 @@ async def accept_request(id : int):
     except:
         raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in updating the status in request_board")
     
-    request_data_dict = request_data.dict()["data"][0]
-
-    driver_id = request_data_dict["driver_id"]
-    
-    #Checking if an existing ride exists in Shared_Trips (This means the driver already ahd some passengers onboard)
-    try:
-        shared_trip_data = supabase.table("shared_trips").select("*").eq("driver_id", driver_id).eq("status", "in progress").execute()
-    except:
-        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in finding trip data in shared_trips")
-    
-    shared_trip_data_dict = shared_trip_data.dict()["data"]
-
-    if len(shared_trip_data_dict) == 0: #Trip doesn't exist, meaning no other passenger sitting
-
-        try:
-            vehicle_data = supabase.table("vehicles").select("vehicle_id").eq("driver_id", driver_id).execute()
-        except:
-            raise HTTPException(status_code=500, detail="DB Transaction Failed. Error fetching vehicle record")
-        
-        vehicle_id = vehicle_data.dict()["data"][0]["vehicle_id"]
-
-        fare_amount = calculate_normal_fare(request_data_dict["pickup_lat"], request_data_dict["pickup_lon"], request_data_dict["dropoff_lat"], request_data_dict["dropoff_lon"])
-
-        trip_record = {
-            "driver_id" : driver_id,
-            "vehicle_id" : vehicle_id,
-            "fare_amount" : fare_amount
-        }
-
-        try:
-            new_trip_record = supabase.table("shared_trips").insert(trip_record).execute()
-        except:
-            raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in inserting shared_trip record")
-        
-        new_trip_record_dict = new_trip_record.dict()["data"][0]
-
-        trip_id = new_trip_record_dict["trip_id"]
-
-        rider_id = request_data_dict["rider_id"]
-
-        new_trip_detail_record = {
-            "trip_id" : trip_id,
-            "rider_id" : rider_id,
-            "pickup_lat" : request_data_dict["pickup_lat"],
-            "pickup_lon" : request_data_dict["pickup_lon"],
-            "dropoff_lat" : request_data_dict["dropoff_lat"],
-            "dropoff_lon" : request_data_dict["dropoff_lon"],
-            "fare_amount" : fare_amount
-        }
-
-        try:
-            inserted_trip_details_data = supabase.table("shared_trip_details").insert(new_trip_detail_record).execute()
-        except:
-            raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in inserting new shared_trip_detail record")
-        
-        ride_response = inserted_trip_details_data.dict()["data"][0]
-
-        #Updating drivers activity_status from "online" to "busy"
-        try:
-            supabase.table("drivers").update({"activity_status" : "busy"}).eq("driver_id", driver_id).execute()
-        except:
-            raise HTTPException(status_code=500, detail="DB Transaction Failed. Error updating drivers status to busy in drivers")
-
-    else:
-
-        trip_id = shared_trip_data_dict[0]["trip_id"]
-        rider_id = request_data_dict["rider_id"]
-        pickup_lat = request_data_dict["pickup_lat"]
-        pickup_lon = request_data_dict["pickup_lon"]
-        dropoff_lat = request_data_dict["dropoff_lat"]
-        dropoff_lon = request_data_dict["dropoff_lon"]
-
-        #Adding Rs.50 to the Total Fare of the trip in shared_ride upon joining of one more passenger
-        try:
-            data = supabase.table("shared_trips").select("fare_amount").eq("trip_id", trip_id).execute()
-        except:
-            raise HTTPException(status_code=500, detail="DB Transaction Failed. Error fetching total fare from shared_trips")
-        
-        current_fare = data.dict()["data"][0]["fare_amount"]
-        new_fare = int(current_fare) + 10
-
-        try:
-            supabase.table("shared_trips").update({"fare_amount" : new_fare}).eq("trip_id", trip_id).execute()
-        except:
-            raise HTTPException(status_code=500, detail="DB Transaction Failed. Error updating fare_amount in shared_trips")
-        
-        #Entering our new riders record
-        record = {
-            "trip_id" : trip_id,
-            "rider_id" : rider_id,
-            "pickup_lat" : request_data_dict["pickup_lat"],
-            "pickup_lon" : request_data_dict["pickup_lon"],
-            "dropoff_lat" : request_data_dict["dropoff_lat"],
-            "dropoff_lon" : request_data_dict["dropoff_lon"]
-        } 
-        try:
-            supabase.table("shared_trip_details").insert(record).execute()
-        except:
-            raise HTTPException(status_code="500", detail="DB Transaction Failed. Error inserting new riders record in shared_trip_details")
-        
-        #Calculating all shared riders fares
-        try:
-            rider_fare_data = supabase.table("shared_trip_details").select("rider_id, pickup_lat, pickup_lon, dropoff_lat, dropoff_lon").eq("trip_id", trip_id).execute()
-        except:
-            raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in retreiving shared trip record from shared_trip_details")
-        
-        rider_fare_data_list = rider_fare_data.dict()["data"]
-
-        new_fares_list = calculate_shared_fare(rider_fare_data_list, new_fare)
-
-        
-        #Updating all riders fares
-
-        for rider in new_fares_list:
-            supabase.table("shared_trip_details").update({"fare_amount" : rider["fare"]}).eq("rider_id", rider["rider_id"]).execute()
-        
-
-        #Appending seats_occupied in shared_trips
-        try:
-            seats_occupied_data = supabase.table("shared_trips").select("seats_occupied").eq("trip_id", trip_id).execute()
-        except:
-            raise HTTPException(status_code=500, detail="DB Transaction Failed. Error fetching occupied seats from shared_trips")
-        
-        seats_occupied_dict = seats_occupied_data.dict()["data"][0]
-
-        current_occupied = seats_occupied_dict["seats_occupied"]
-        updated_occupied = int(current_occupied) + 1
-
-        try:
-            supabase.table("shared_trips").update({"seats_occupied" : updated_occupied}).eq("trip_id", trip_id).execute()
-        except:
-            raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in updating seats occupied in shared_trips")
-
     return {"response" : "Request accepted"}
-
+    
 
 #This endpoint rejects the ride request
 @app.put("/reject_request", dependencies=[Depends(JWTBearer())])
