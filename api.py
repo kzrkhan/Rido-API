@@ -16,7 +16,7 @@ from supabase import create_client, Client
 import bcrypt
 from cryptography.fernet import Fernet
 from geopy.distance import geodesic
-from geopy.geocoders import OpenCage
+from geopy.geocoders import OpenCage, GoogleV3
 import requests
 import aiohttp
 import asyncio
@@ -53,7 +53,7 @@ fernet = Fernet((os.environ.get("RIDO_FERNET_KEY")).encode("utf-8"))
 
 
 #OpenCage initialization\
-geolocator = OpenCage(api_key = os.environ.get("RIDO_OPENCAGE_KEY"))
+geolocator = GoogleV3(api_key = os.environ.get("RIDO_GMAP_KEY"))
 
 
 #Default end-point of API
