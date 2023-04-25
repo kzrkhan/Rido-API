@@ -873,7 +873,7 @@ def quickest_time(time_list):
         return {"driver_id" : time["driver_id"], "accepted_at" : time["accepted_at"]}
 
     else:
-        return time_list
+        return time_list[0]
 
 #Calculates distance between 2 points based on Haversine formula
 def haversine(lat1, lon1, lat2, lon2):
