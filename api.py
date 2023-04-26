@@ -912,7 +912,7 @@ async def who_accepted(rider_id : int):
     
     elif len(driver_list) == 0:
         
-        return JSONResponse({"details": "Not accepted yet"}, status_code=302)
+        return JSONResponse({"details": "Not accepted yet"}, status_code=201)
 
 
 #This endpoint keeps searching for latest ride requests for the given driver_id
