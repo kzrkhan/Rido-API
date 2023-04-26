@@ -677,8 +677,8 @@ async def ride_detail_data(id : int):
 
         #Preparing detailed response
         ride_details = {
-            "pickup_address" : pickup_location,
-            "dropoff_address" : dropoff_location,
+            "pickup_address" : str(pickup_location),
+            "dropoff_address" : str(dropoff_location),
             "driver_name" : driver_name,
             "license_plate" : license_plate,
             "rider_fare" : rider_fare,
