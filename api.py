@@ -564,7 +564,21 @@ def online_drivers_nearby(pickup_lat : float, pickup_lon : float):
 
 @app.get("/get_fare", dependencies=[Depends(JWTBearer())])
 async def get_fare(id : int):
-    pass
+    
+    try:
+        shared_trip_details = supabase.table("shared_trip_details").select("fare_amount").eq("id", id).execute()
+    except:
+        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error fetching fare_amount from shared_trip_details")
+    
+    shared_trip_details_dict = shared_trip_details.dict()["data"][0]
+
+    final_fare = shared_trip_details_dict["fare_amount"]
+
+    response = {
+        "final_fare" : final_fare
+    }
+
+    return response
 
 
 #This endpint returns the preview data that is shown after tapping on find ride from the home screen
@@ -673,7 +687,7 @@ async def ride_detail_data(id : int):
 
     elif str(current_status) == "completed":
 
-        return JSONResponse({"response" : "Ride finished"}, status_code=300)
+        return JSONResponse({"response" : "Ride finished"}, status_code=201)
 
 
 #Function to post ride request to selected drivers without Fare
