@@ -953,7 +953,7 @@ def calculate_shared_fare(rider_list , total_fare):
     return fare_list
 
 
-@app.post("/sqltest")
+@app.post("/sqltest", dependencies=[Depends(JWTBearer())])
 async def sqltest(sample : SampleSchema):
     
     dict = {
