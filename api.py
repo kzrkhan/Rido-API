@@ -4,7 +4,7 @@ import os
 import shutil
 import random
 from fastapi import FastAPI, Depends, Query, Body, UploadFile, File, Form, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
@@ -303,6 +303,18 @@ async def driver_login(driver : DriverLoginSchema):
     raise HTTPException(status_code=400, detail="Email or password is incorrect")
 
 
+#Logout endpoint for Drivers
+@app.put("/driver_logout")
+async def driver_logout(driver_id : int):
+
+    try:
+        drivers = supabase.table("drivers").update({"activity_status" : "offline"}).eq("driver_id", driver_id).execute()
+    except:
+        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error updating activity_status to offline in drivers for given driver_id")
+
+    return {"response" : "Logged out"}
+
+
 #Function to check if a vehicle with a certain license plate exists in the records
 def check_existing_license_plate(data : VehicleRegistrationSchema):
     try:
@@ -569,8 +581,78 @@ async def ride_preview(pickup_lat : float, pickup_lon : float, dropoff_lat : flo
 
 #This endpoint returns complete data to be displayed once the ride is confirmed
 @app.get("/ride_detail_data", dependencies=[Depends(JWTBearer())])
-async def ride_detail_data():
-    pass
+async def ride_detail_data(id : int):
+    
+    try:
+        shared_trip_details = supabase.table("shared_trip_details").select("*").eq("id", id).execute()
+    except:
+        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in fetching all data for given id from shared_trip_details")
+    
+    shared_trip_details_dict = shared_trip_details.dict()["data"][0]
+
+    pickup_lat = shared_trip_details_dict["pickup_lat"]
+    pickup_lon = shared_trip_details_dict["pickup_lon"]
+    dropoff_lat = shared_trip_details_dict["dropoff_lat"]
+    dropoff_lon = shared_trip_details_dict["dropoff_lon"]
+    driver_id = shared_trip_details_dict["driver_id"]
+
+    trip_id = shared_trip_details_dict["trip_id"]
+
+    pickup_location = geolocator.reverse(f"{pickup_lat}, {pickup_lon}")
+    dropoff_location = geolocator.reverse(f"{dropoff_lat}, {dropoff_lon}")
+
+    #Finding license_plate
+    try:
+        vehicle_data = supabase.table("vehicles").select("license_plate, max_capacity").eq("driver_id", driver_id).execute()
+    except:
+        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in fetching license plate from vehicles")
+
+    vehicle_data_dict = vehicle_data.dict()["data"][0]
+
+    license_plate = vehicle_data_dict["license_plate"]
+    max_capacity = vehicle_data_dict["max_capacity"]
+
+    #Finding Drivers name and phone_number
+    try:
+        drivers_data = supabase.table("drivers").select("name, phone_number").eq("driver_id", driver_id).execute()
+    except:
+        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error fetching name and phone_number from drivers")
+    
+    drivers_data_dict = drivers_data.dict()["data"][0]
+
+    driver_name = drivers_data_dict["name"]
+    driver_number = drivers_data_dict["phone_number"]
+
+    #Riders fare
+    rider_fare = shared_trip_details_dict["fare_amount"]
+
+    #Total trips fare and seats occupied
+    try:
+        shared_trip_data = supabase.table("shared_trips").select("seats_occupied, fare_amount").eq("trip_id", trip_id).execute()
+    except:
+        raise HTTPException(status_code=500, detail="Error fetching seats_occupied and fare_amount from shared_trips")
+    
+    shared_trip_dict = shared_trip_data.dict()["data"][0]
+
+    seats_occupied = shared_trip_dict["seats_occupied"]
+    total_fare = shared_trip_dict["fare_amount"]
+
+    display_seats = str(seats_occupied) + "/" + str(max_capacity)
+
+
+    #Preparing detailed response
+    ride_details = {
+        "pickup_address" : pickup_location,
+        "dropoff_address" : dropoff_location,
+        "driver_name" : driver_name,
+        "license_plate" : license_plate,
+        "rider_fare" : rider_fare,
+        "total_fare" : total_fare,
+        "driver_number" : driver_number,
+        "display_seats" : display_seats
+    }
+
+    return ride_details
 
 
 #Function to post ride request to selected drivers without Fare
@@ -730,6 +812,8 @@ async def who_accepted(rider_id : int):
             except:
                 raise HTTPException(status_code=500, detail="DB Transaction Failed. Error updating drivers status to busy in drivers")
 
+            return {"id" : ride_response["id"]}
+
         else:
 
             trip_id = shared_trip_data_dict[0]["trip_id"]
@@ -763,7 +847,7 @@ async def who_accepted(rider_id : int):
                 "dropoff_lon" : dropoff_lon
             } 
             try:
-                supabase.table("shared_trip_details").insert(record).execute()
+                inserted_trip_details_data = supabase.table("shared_trip_details").insert(record).execute()
             except:
                 raise HTTPException(status_code="500", detail="DB Transaction Failed. Error inserting new riders record in shared_trip_details")
             
@@ -799,11 +883,15 @@ async def who_accepted(rider_id : int):
                 supabase.table("shared_trips").update({"seats_occupied" : updated_occupied}).eq("trip_id", trip_id).execute()
             except:
                 raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in updating seats occupied in shared_trips")
+            
+            ride_response = inserted_trip_details_data.dict()["data"][0]
 
-        return {"driver_id" : driver_id}
+            return {"id" : ride_response["id"]}
+
     
     elif len(driver_list) == 0:
-        raise HTTPException(status_code=301, detail="Not accepted yet")
+        
+        return JSONResponse({"details": "Not accepted yet"}, status_code=125)
 
 
 #This endpoint keeps searching for latest ride requests for the given driver_id
