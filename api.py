@@ -454,8 +454,8 @@ async def request_ride(ride_request : RideRequestSchema):
             
             return {"response" : "Request created successfully"}
         
-        #raise HTTPException(status_code=400, detail="No drivers available")
-        return {"response" : "No drivers available"}
+        raise HTTPException(status_code=400, detail="No drivers available")
+        #return {"response" : "No drivers available"}
         
 
 
