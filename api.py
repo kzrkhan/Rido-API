@@ -285,6 +285,12 @@ async def driver_login(driver : DriverLoginSchema):
         raise HTTPException(status_code=500, detail="DB Transaction Failed. Error fetching Driver records.")
     for item in db_data:
         if item["email"] == driver.email and verify_pswd(driver.password , item["password"]):
+            #Updating driver "activity_status" to "online"
+            try:
+                supabase.table("drivers").update({"activity_status" : "online"}).eq("driver_id", item["driver_id"]).execute()
+            except:
+                raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in updating drivers activity_status")
+
             token = sign_JWT(driver.email)
             return {
             "driver_id" : item["driver_id"],
@@ -294,7 +300,6 @@ async def driver_login(driver : DriverLoginSchema):
             "token" : token
             }
     raise HTTPException(status_code=400, detail="Email or password is incorrect")
-    return {"response" : "Email or password is incorrect"}
 
 
 #Function to check if a vehicle with a certain license plate exists in the records
@@ -948,7 +953,12 @@ def calculate_shared_fare(rider_list , total_fare):
     return fare_list
 
 
-@app.get("/sqltest")
-async def sqltest():
+@app.post("/sqltest")
+async def sqltest(sample : SampleSchema):
     
-    return {"response" : "Test endpoint"}
+    dict = {
+        "x" : sample.x,
+        "y" : sample.y
+    }
+
+    return {"response" : dict}

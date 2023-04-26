@@ -58,3 +58,8 @@ class UpdatePositionSchema (BaseModel):
     driver_id : int = Field(default=None)
     lat : float = Field(default=None)
     lon : float = Field(default=None)
+
+
+class SampleSchema (BaseModel):
+    x : int = Field(default=None)
+    y : int = Field(default=None)
