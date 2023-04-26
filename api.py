@@ -754,7 +754,7 @@ async def who_accepted(rider_id : int):
     db_dict = data.dict()
 
     if len(db_dict["data"]) == 0:
-        raise HTTPException(status_code=400, detail="Request expired")
+        raise HTTPException(status_code=202, detail="Sorry, no driver accepted your request")
 
     driver_list = []
 
@@ -870,7 +870,7 @@ async def who_accepted(rider_id : int):
             try:
                 inserted_trip_details_data = supabase.table("shared_trip_details").insert(record).execute()
             except:
-                raise HTTPException(status_code="500", detail="DB Transaction Failed. Error inserting new riders record in shared_trip_details")
+                raise HTTPException(status_code=500, detail="DB Transaction Failed. Error inserting new riders record in shared_trip_details")
             
             #Calculating all shared riders fares
             try:
