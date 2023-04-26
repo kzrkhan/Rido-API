@@ -583,76 +583,92 @@ async def ride_preview(pickup_lat : float, pickup_lon : float, dropoff_lat : flo
 @app.get("/ride_detail_data", dependencies=[Depends(JWTBearer())])
 async def ride_detail_data(id : int):
     
+    #Checking if the ride is complete or not
     try:
-        shared_trip_details = supabase.table("shared_trip_details").select("*").eq("id", id).execute()
+        status_data = supabase.table("shared_trip_details").select("status").eq("id", id).execute()
     except:
-        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in fetching all data for given id from shared_trip_details")
+        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in fetching status from shared_ride_details")
     
-    shared_trip_details_dict = shared_trip_details.dict()["data"][0]
+    status_data_dict = status_data.dict()["data"][0]
 
-    pickup_lat = shared_trip_details_dict["pickup_lat"]
-    pickup_lon = shared_trip_details_dict["pickup_lon"]
-    dropoff_lat = shared_trip_details_dict["dropoff_lat"]
-    dropoff_lon = shared_trip_details_dict["dropoff_lon"]
-    driver_id = shared_trip_details_dict["driver_id"]
+    current_status = status_data_dict["status"]
 
-    trip_id = shared_trip_details_dict["trip_id"]
+    if str(current_status) == "in progress":
 
-    pickup_location = geolocator.reverse(f"{pickup_lat}, {pickup_lon}")
-    dropoff_location = geolocator.reverse(f"{dropoff_lat}, {dropoff_lon}")
+        try:
+            shared_trip_details = supabase.table("shared_trip_details").select("*").eq("id", id).execute()
+        except:
+            raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in fetching all data for given id from shared_trip_details")
+        
+        shared_trip_details_dict = shared_trip_details.dict()["data"][0]
 
-    #Finding license_plate
-    try:
-        vehicle_data = supabase.table("vehicles").select("license_plate, max_capacity").eq("driver_id", driver_id).execute()
-    except:
-        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in fetching license plate from vehicles")
+        pickup_lat = shared_trip_details_dict["pickup_lat"]
+        pickup_lon = shared_trip_details_dict["pickup_lon"]
+        dropoff_lat = shared_trip_details_dict["dropoff_lat"]
+        dropoff_lon = shared_trip_details_dict["dropoff_lon"]
+        driver_id = shared_trip_details_dict["driver_id"]
 
-    vehicle_data_dict = vehicle_data.dict()["data"][0]
+        trip_id = shared_trip_details_dict["trip_id"]
 
-    license_plate = vehicle_data_dict["license_plate"]
-    max_capacity = vehicle_data_dict["max_capacity"]
+        pickup_location = geolocator.reverse(f"{pickup_lat}, {pickup_lon}")
+        dropoff_location = geolocator.reverse(f"{dropoff_lat}, {dropoff_lon}")
 
-    #Finding Drivers name and phone_number
-    try:
-        drivers_data = supabase.table("drivers").select("name, phone_number").eq("driver_id", driver_id).execute()
-    except:
-        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error fetching name and phone_number from drivers")
-    
-    drivers_data_dict = drivers_data.dict()["data"][0]
+        #Finding license_plate
+        try:
+            vehicle_data = supabase.table("vehicles").select("license_plate, max_capacity").eq("driver_id", driver_id).execute()
+        except:
+            raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in fetching license plate from vehicles")
 
-    driver_name = drivers_data_dict["name"]
-    driver_number = drivers_data_dict["phone_number"]
+        vehicle_data_dict = vehicle_data.dict()["data"][0]
 
-    #Riders fare
-    rider_fare = shared_trip_details_dict["fare_amount"]
+        license_plate = vehicle_data_dict["license_plate"]
+        max_capacity = vehicle_data_dict["max_capacity"]
 
-    #Total trips fare and seats occupied
-    try:
-        shared_trip_data = supabase.table("shared_trips").select("seats_occupied, fare_amount").eq("trip_id", trip_id).execute()
-    except:
-        raise HTTPException(status_code=500, detail="Error fetching seats_occupied and fare_amount from shared_trips")
-    
-    shared_trip_dict = shared_trip_data.dict()["data"][0]
+        #Finding Drivers name and phone_number
+        try:
+            drivers_data = supabase.table("drivers").select("name, phone_number").eq("driver_id", driver_id).execute()
+        except:
+            raise HTTPException(status_code=500, detail="DB Transaction Failed. Error fetching name and phone_number from drivers")
+        
+        drivers_data_dict = drivers_data.dict()["data"][0]
 
-    seats_occupied = shared_trip_dict["seats_occupied"]
-    total_fare = shared_trip_dict["fare_amount"]
+        driver_name = drivers_data_dict["name"]
+        driver_number = drivers_data_dict["phone_number"]
 
-    display_seats = str(seats_occupied) + "/" + str(max_capacity)
+        #Riders fare
+        rider_fare = shared_trip_details_dict["fare_amount"]
+
+        #Total trips fare and seats occupied
+        try:
+            shared_trip_data = supabase.table("shared_trips").select("seats_occupied, fare_amount").eq("trip_id", trip_id).execute()
+        except:
+            raise HTTPException(status_code=500, detail="Error fetching seats_occupied and fare_amount from shared_trips")
+        
+        shared_trip_dict = shared_trip_data.dict()["data"][0]
+
+        seats_occupied = shared_trip_dict["seats_occupied"]
+        total_fare = shared_trip_dict["fare_amount"]
+
+        display_seats = str(seats_occupied) + "/" + str(max_capacity)
 
 
-    #Preparing detailed response
-    ride_details = {
-        "pickup_address" : pickup_location,
-        "dropoff_address" : dropoff_location,
-        "driver_name" : driver_name,
-        "license_plate" : license_plate,
-        "rider_fare" : rider_fare,
-        "total_fare" : total_fare,
-        "driver_number" : driver_number,
-        "display_seats" : display_seats
-    }
+        #Preparing detailed response
+        ride_details = {
+            "pickup_address" : pickup_location,
+            "dropoff_address" : dropoff_location,
+            "driver_name" : driver_name,
+            "license_plate" : license_plate,
+            "rider_fare" : rider_fare,
+            "total_fare" : total_fare,
+            "driver_number" : driver_number,
+            "display_seats" : display_seats
+        }
 
-    return ride_details
+        return ride_details
+
+    elif str(current_status) == "completed":
+
+        return JSONResponse({"response" : "Ride finished"}, status_code=300)
 
 
 #Function to post ride request to selected drivers without Fare
