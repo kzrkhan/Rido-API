@@ -608,7 +608,10 @@ async def ride_detail_data(id : int):
     except:
         raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in fetching status from shared_ride_details")
     
-    status_data_dict = status_data.dict()["data"][0]
+    try:
+        status_data_dict = status_data.dict()["data"][0]
+    except:
+        raise HTTPException(status_code=400, detail="Wrong id given as input")
 
     current_status = status_data_dict["status"]
 
@@ -625,12 +628,23 @@ async def ride_detail_data(id : int):
         pickup_lon = shared_trip_details_dict["pickup_lon"]
         dropoff_lat = shared_trip_details_dict["dropoff_lat"]
         dropoff_lon = shared_trip_details_dict["dropoff_lon"]
-        driver_id = shared_trip_details_dict["driver_id"]
 
         trip_id = shared_trip_details_dict["trip_id"]
 
         pickup_location = geolocator.reverse(f"{pickup_lat}, {pickup_lon}")
         dropoff_location = geolocator.reverse(f"{dropoff_lat}, {dropoff_lon}")
+
+        #Total trips fare and seats occupied
+        try:
+            shared_trip_data = supabase.table("shared_trips").select("driver_id, seats_occupied, fare_amount").eq("trip_id", trip_id).execute()
+        except:
+            raise HTTPException(status_code=500, detail="Error fetching seats_occupied and fare_amount from shared_trips")
+        
+        shared_trip_dict = shared_trip_data.dict()["data"][0]
+
+        driver_id = shared_trip_dict["driver_id"]
+        seats_occupied = shared_trip_dict["seats_occupied"]
+        total_fare = shared_trip_dict["fare_amount"]
 
         #Finding license_plate
         try:
@@ -657,16 +671,6 @@ async def ride_detail_data(id : int):
         #Riders fare
         rider_fare = shared_trip_details_dict["fare_amount"]
 
-        #Total trips fare and seats occupied
-        try:
-            shared_trip_data = supabase.table("shared_trips").select("seats_occupied, fare_amount").eq("trip_id", trip_id).execute()
-        except:
-            raise HTTPException(status_code=500, detail="Error fetching seats_occupied and fare_amount from shared_trips")
-        
-        shared_trip_dict = shared_trip_data.dict()["data"][0]
-
-        seats_occupied = shared_trip_dict["seats_occupied"]
-        total_fare = shared_trip_dict["fare_amount"]
 
         display_seats = str(seats_occupied) + "/" + str(max_capacity)
 
