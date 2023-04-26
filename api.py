@@ -562,6 +562,11 @@ def online_drivers_nearby(pickup_lat : float, pickup_lon : float):
     return nearby_list
 
 
+@app.get("/get_fare", dependencies=[Depends(JWTBearer())])
+async def get_fare(id : int):
+    pass
+
+
 #This endpint returns the preview data that is shown after tapping on find ride from the home screen
 @app.get("/ride_preview", dependencies=[Depends(JWTBearer())])
 async def ride_preview(pickup_lat : float, pickup_lon : float, dropoff_lat : float, dropoff_lon : float):
@@ -907,7 +912,7 @@ async def who_accepted(rider_id : int):
     
     elif len(driver_list) == 0:
         
-        return JSONResponse({"details": "Not accepted yet"}, status_code=125)
+        return JSONResponse({"details": "Not accepted yet"}, status_code=302)
 
 
 #This endpoint keeps searching for latest ride requests for the given driver_id
