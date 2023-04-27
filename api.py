@@ -1039,7 +1039,7 @@ async def driver_active_trip_details(id : int):
 
 
 #Complete a shared_ride
-@app.update("/complete_ride")
+@app.put("/complete_ride")
 async def complete_ride(id : int):
 
     #Checking if this is the last ride in the shared ride batch
