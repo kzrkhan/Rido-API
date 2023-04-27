@@ -273,7 +273,6 @@ async def driver_signup(driver : DriverSignupSchema):
         "email" : driver.email,
         "name" : driver.name,
         "phone number" : driver.phone_number,
-        "token" : token
         }
 
 
@@ -581,7 +580,7 @@ async def get_fare(id : int):
     return response
 
 
-#This endpint returns the preview data that is shown after tapping on find ride from the home screen
+#This endpoint returns the preview data that is shown after tapping on find ride from the home screen
 @app.get("/ride_preview", dependencies=[Depends(JWTBearer())])
 async def ride_preview(pickup_lat : float, pickup_lon : float, dropoff_lat : float, dropoff_lon : float):
     
@@ -976,6 +975,34 @@ async def reject_request(id : int):
         return {"response" : "Request Rejected"}
     except:
         raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in updating the status in request_board")
+
+
+#This endpoint returns all the active trip data for all sitting riders from the shared_trip_details for the given id to the driver to help
+"""@app.get("/driver_active_trip_details", dependencies=[Depends(JWTBearer())])
+async def driver_active_trip_details(id : int):
+
+    #Retrieving trip_id for the given id (This id is of the individual shared_trip_details record)
+    try:
+        trip_id_data = supabase.table("shared_trip_details").select("trip_id").eq("id", id).execute()
+    except:
+        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in fetching trip_id from shared_trip_details")
+    
+    trip_id = trip_id_data.dict()["data"][0]["trip_id"]
+
+    #Fetching all trips of individual riders for this rider_id from shared_trip_details
+    try:
+        shared_trip_details = supabase.table("shared_trip_details").select("*").eq("trip_id", trip_id).eq("status", "in progress").execute()
+    except:
+        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error fetching in progress trip record for given trip_id from shared_trip_details")
+
+    shared_trip_details_dict = shared_trip_details.dict()["data"]
+
+    list_of_sitting_riders = []
+    #Looping over every seated rider in the trip and forming a response to send to the client (driver)
+    for rider_record in shared_trip_details_dict:"""
+
+
+
 
 
 #Finds the driver_id with the quickest acceptance time
