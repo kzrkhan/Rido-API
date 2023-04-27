@@ -937,7 +937,7 @@ async def who_accepted(rider_id : int):
 async def seek_request(driver_id : int):
 
     try:
-        data = supabase.table("request_board").select("*").eq("driver_id", driver_id).execute()
+        data = supabase.table("request_board").select("*").eq("driver_id", driver_id).eq("status", "pending").execute()
         db_dict = data.dict()
     except:
         raise HTTPException(status_code=500, detail="DB Transaction Failed. Error seeking requests for given driver_id")
@@ -978,7 +978,7 @@ async def reject_request(id : int):
 
 
 #This endpoint returns all the active trip data for all sitting riders from the shared_trip_details for the given id to the driver to help
-"""@app.get("/driver_active_trip_details", dependencies=[Depends(JWTBearer())])
+@app.get("/driver_active_trip_details", dependencies=[Depends(JWTBearer())])
 async def driver_active_trip_details(id : int):
 
     #Retrieving trip_id for the given id (This id is of the individual shared_trip_details record)
@@ -998,11 +998,49 @@ async def driver_active_trip_details(id : int):
     shared_trip_details_dict = shared_trip_details.dict()["data"]
 
     list_of_sitting_riders = []
+    
     #Looping over every seated rider in the trip and forming a response to send to the client (driver)
-    for rider_record in shared_trip_details_dict:"""
+    for rider_record in shared_trip_details_dict:
+
+        trip_detail_id = rider_record["id"]
+        rider_id = rider_record["rider_id"]
+        #Fetching name and phone number for the given rider_id in rider_record
+        try:
+            rider_data = supabase.table("riders").select("name, phone_number").eq("rider_id", rider_id).execute()
+        except:
+            raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in fetching name and phone_number from rider_id")
+        
+        rider_data_dict = rider_data.dict()["data"][0]
+
+        name = rider_data_dict["name"]
+        phone_number = rider_data_dict["phone_number"]
+
+        pickup_lat = rider_record["pickup_lat"]
+        pickup_lon = rider_record["pickup_lon"]
+        dropoff_lat = rider_record["dropoff_lat"]
+        dropoff_lon = rider_record["dropoff_lon"]
+
+        insertable_record = {
+            "id" : trip_detail_id,
+            "name" : name,
+            "phone_number" : phone_number,
+            "pickup_lat" : pickup_lat,
+            "pickup_lon" : pickup_lon,
+            "dropoff_lat" : dropoff_lat,
+            "dropoff_lon" : dropoff_lon
+        }
+
+        list_of_sitting_riders.append(insertable_record)
+    
+    if len(list_of_sitting_riders) > 0:
+        return list_of_sitting_riders
+    else:
+        return JSONResponse({"detail" : "All rides are completed"}, status_code=201)
 
 
-
+#Complete a shared_ride
+"""@app.update("/complete_ride")
+async def complete_ride"""
 
 
 #Finds the driver_id with the quickest acceptance time
