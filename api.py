@@ -1070,10 +1070,17 @@ async def complete_ride(id : int):
             raise HTTPException(status_code=500, detail="DB Transaction Failed. Error updating status to completed in shared_trip_details")
         
         try:
-            supabase.table("shared_trips").update({"status" : "completed"}).eq("trip_id", trip_id).execute()
+            shared_trips = supabase.table("shared_trips").update({"status" : "completed"}).eq("trip_id", trip_id).execute()
         except:
             raise HTTPException(status_code=500, detail="DB Transaction Failed. Error updating status to completed in shared_trips")
         
+        driver_id = shared_trips.dict()["data"][0]["driver_id"]
+
+        try:
+            supabase.table("drivers").update({"activity_status" : "online"}).eq("driver_id", driver_id).execute()
+        except:
+            raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in updating activity_status to online in drivers")
+
         return {"detail" : "Ride marked complete"}
     
     else:
