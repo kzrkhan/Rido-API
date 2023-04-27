@@ -945,7 +945,11 @@ async def seek_request(driver_id : int):
 
     ride_request = db_dict["data"]
 
-    return ride_request
+    if len(ride_request) == 0: #Ride request not found for the given driver_id
+        return JSONResponse({"detail" : "No request yet. Keep waiting..."}, status_code=201)
+    else: #Ride request found for the given driver_id
+        return ride_request[0]
+
 
 #This endpoint accepts the ride request
 @app.put("/accept_request", dependencies=[Depends(JWTBearer())])
