@@ -1039,10 +1039,62 @@ async def driver_active_trip_details(id : int):
 
 
 #Complete a shared_ride
-"""@app.update("/complete_ride")
-async def complete_ride"""
+@app.update("/complete_ride")
+async def complete_ride(id : int):
 
+    #Checking if this is the last ride in the shared ride batch
+    try:
+        shared_trip_details = supabase.table("shared_trip_details").select("trip_id").eq("id", id).execute()
+    except:
+        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in getting trip_id from shared_trip_details")
+    
+    trip_id = shared_trip_details.dict()["data"][0]["trip_id"]
 
+    try:
+        shared_trip_details2 = supabase.table("shared_trip_details").select("id").eq("trip_id", trip_id).eq("status", "in progress").execute()
+    except:
+        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error getting id from shared_trip_details")
+    
+    active_ride_list = shared_trip_details2.dict()["data"]
+
+    if len(active_ride_list) == 1: #Only one active rider in the trip batch
+
+        try:
+            supabase.table("shared_trip_details").update({"status" : "completed"}).eq("id", id).execute()
+        except:
+            raise HTTPException(status_code=500, detail="DB Transaction Failed. Error updating status to completed in shared_trip_details")
+        
+        try:
+            supabase.table("shared_trips").update({"status" : "completed"}).eq("trip_id", trip_id).execute()
+        except:
+            raise HTTPException(status_code=500, detail="DB Transaction Failed. Error updating status to completed in shared_trips")
+        
+        return {"detail" : "Ride marked complete"}
+    
+    else:
+
+        try:
+            supabase.table("shared_trip_details").update({"status" : "completed"}).eq("id", id).execute()
+        except:
+            raise HTTPException(status_code=500, detail="DB Transaction Failed. Error updating status to completed in shared_trip_details")
+        
+        return {"detail" : "Ride marked complete"}
+    
+
+#This endpoint return fare for the particular id of shared_trip_details
+@app.get("/driver_get_fare")
+async def driver_get_fare(id : int):
+
+    try:
+        fare_data = supabase.table("shared_trip_details").select("fare_amount").eq("id", id).execute()
+    except:
+        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in fetching fare amount for the given id from shared_trip_details")
+    
+    fare_amount = fare_data.dict()["data"][0]["fare_amount"]
+
+    return {"fare_amount" : fare_amount}
+
+    
 #Finds the driver_id with the quickest acceptance time
 #time_list format = 
 #[
