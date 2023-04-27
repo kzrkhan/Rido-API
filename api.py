@@ -331,7 +331,7 @@ def check_existing_license_plate(data : VehicleRegistrationSchema):
 
 
 #End-point to enter Vehicle details for Drivers
-@app.post("/add_vehicle", dependencies=[Depends(JWTBearer())])
+@app.post("/add_vehicle")
 async def add_vehicle(vehicle : VehicleRegistrationSchema):
     
     if check_existing_license_plate(vehicle):
