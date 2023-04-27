@@ -367,20 +367,25 @@ async def update_driver_position(update_position : UpdatePositionSchema):
     try:
         data = supabase.table("driver_locations").select("*").eq("driver_id",update_position.driver_id).execute()
         db_dict = data.dict()
-        if len(db_dict["data"]) == 0:
-            try:
-                supabase.table("driver_locations").insert({"driver_id":update_position.driver_id , "lat":update_position.lat , "lon":update_position.lon}).execute()
-            except:
-                raise HTTPException(status_code=500, detail="Error creating location entry fo Driver in DB")
-        else:
-            try:
-                supabase.table("driver_locations").update({"lat":update_position.lat , "lon":update_position.lon}).eq("driver_id",update_position.driver_id).execute()
-            except:
-                raise HTTPException(status_code=500, detail="DB Transaction Failed. Error updating location for Driver in DB")
     except:
         raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in finding location entry for Driver in DB")
     
-    return {"response" : "Updated"}
+    if len(db_dict["data"]) == 0:
+        try:
+            supabase.table("driver_locations").insert({"driver_id":update_position.driver_id , "lat":update_position.lat , "lon":update_position.lon}).execute()
+        except:
+            raise HTTPException(status_code=500, detail="Error creating location entry fo Driver in DB")
+        
+        return {"response" : "Updated"}
+    
+    else:
+        try:
+            supabase.table("driver_locations").update({"lat":update_position.lat , "lon":update_position.lon}).eq("driver_id",update_position.driver_id).execute()
+        except:
+            raise HTTPException(status_code=500, detail="DB Transaction Failed. Error updating location for Driver in DB")
+        
+        return {"response" : "Updated"}
+    
 
 
 #End-point to enter Payment Card information of Riders
