@@ -984,13 +984,13 @@ async def reject_request(id : int):
 
 #This endpoint returns all the active trip data for all sitting riders from the shared_trip_details for the given id to the driver to help
 @app.get("/driver_active_trip_details")
-async def driver_active_trip_details(id : int):
+async def driver_active_trip_details(driver_id : int):
 
     #Retrieving trip_id for the given id (This id is of the individual shared_trip_details record)
     try:
-        trip_id_data = supabase.table("shared_trip_details").select("trip_id").eq("id", id).execute()
+        trip_id_data = supabase.table("shared_trips").select("trip_id").eq("driver_id", driver_id).eq("status", "in progress").execute()
     except:
-        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in fetching trip_id from shared_trip_details")
+        raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in fetching trip_id from shared_trips")
     
     trip_id = trip_id_data.dict()["data"][0]["trip_id"]
 
