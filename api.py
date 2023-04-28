@@ -988,11 +988,12 @@ async def driver_active_trip_details(driver_id : int):
 
     #Retrieving trip_id for the given id (This id is of the individual shared_trip_details record)
     try:
-        trip_id_data = supabase.table("shared_trips").select("trip_id").eq("driver_id", driver_id).eq("status", "in progress").execute()
+        trip_id_data = supabase.table("shared_trips").select("trip_id, fare_amount").eq("driver_id", driver_id).eq("status", "in progress").execute()
     except:
         raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in fetching trip_id from shared_trips")
     
     trip_id = trip_id_data.dict()["data"][0]["trip_id"]
+    fare_amount = trip_id_data.dict()["data"][0]["fare_amount"]
 
     #Fetching all trips of individual riders for this rider_id from shared_trip_details
     try:
@@ -1032,7 +1033,8 @@ async def driver_active_trip_details(driver_id : int):
             "pickup_lat" : pickup_lat,
             "pickup_lon" : pickup_lon,
             "dropoff_lat" : dropoff_lat,
-            "dropoff_lon" : dropoff_lon
+            "dropoff_lon" : dropoff_lon,
+            "fare_amount" : fare_amount
         }
 
         list_of_sitting_riders.append(insertable_record)
