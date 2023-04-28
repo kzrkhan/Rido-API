@@ -956,7 +956,7 @@ async def seek_request(driver_id : int):
 
 
 #This endpoint accepts the ride request
-@app.put("/accept_request", dependencies=[Depends(JWTBearer())])
+@app.put("/accept_request")
 async def accept_request(id : int):
 
     t = time.localtime()
@@ -971,7 +971,7 @@ async def accept_request(id : int):
     
 
 #This endpoint rejects the ride request
-@app.put("/reject_request", dependencies=[Depends(JWTBearer())])
+@app.put("/reject_request")
 async def reject_request(id : int):
 
     try:
@@ -983,7 +983,7 @@ async def reject_request(id : int):
 
 
 #This endpoint returns all the active trip data for all sitting riders from the shared_trip_details for the given id to the driver to help
-@app.get("/driver_active_trip_details", dependencies=[Depends(JWTBearer())])
+@app.get("/driver_active_trip_details")
 async def driver_active_trip_details(id : int):
 
     #Retrieving trip_id for the given id (This id is of the individual shared_trip_details record)
