@@ -993,7 +993,7 @@ async def driver_active_trip_details(driver_id : int):
         raise HTTPException(status_code=500, detail="DB Transaction Failed. Error in fetching trip_id from shared_trips")
     
     trip_id = trip_id_data.dict()["data"][0]["trip_id"]
-    fare_amount = trip_id_data.dict()["data"][0]["fare_amount"]
+    total_fare_amount = trip_id_data.dict()["data"][0]["fare_amount"]
 
     #Fetching all trips of individual riders for this rider_id from shared_trip_details
     try:
@@ -1025,7 +1025,8 @@ async def driver_active_trip_details(driver_id : int):
         pickup_lon = rider_record["pickup_lon"]
         dropoff_lat = rider_record["dropoff_lat"]
         dropoff_lon = rider_record["dropoff_lon"]
-
+        fare_amount = rider_record["fare_amount"]
+        
         insertable_record = {
             "id" : trip_detail_id,
             "name" : name,
@@ -1034,7 +1035,8 @@ async def driver_active_trip_details(driver_id : int):
             "pickup_lon" : pickup_lon,
             "dropoff_lat" : dropoff_lat,
             "dropoff_lon" : dropoff_lon,
-            "fare_amount" : fare_amount
+            "fare_amount" : fare_amount,
+            "total_fare_amount" : total_fare_amount
         }
 
         list_of_sitting_riders.append(insertable_record)
